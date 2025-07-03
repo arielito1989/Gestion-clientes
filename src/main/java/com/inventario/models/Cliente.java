@@ -119,4 +119,19 @@ public class Cliente {
                 nombre, dni, totalProducto, tipoCuota, getValorCuota(),
                 progresoCuotas, calcularDeudaRestante());
     }
+    public String getDetalles() {
+        StringBuilder detalles = new StringBuilder();
+        detalles.append("Nombre: ").append(nombre).append("\n");
+        detalles.append("DNI: ").append(dni).append("\n");
+        detalles.append("Tipo de Cuota: ").append(tipoCuota).append("\n");
+        detalles.append("Total del Producto: $").append(String.format("%.2f", totalProducto)).append("\n");
+        detalles.append("Valor por Cuota: $").append(String.format("%.2f", getValorCuota())).append("\n");
+        detalles.append("Total de Cuotas: ").append(getTotalCuotas()).append("\n");
+        detalles.append("Cuotas Pagadas: ").append(getCuotasPagadasCount()).append("\n");
+        detalles.append("Cuotas Pendientes: ").append(getCuotasRestantes()).append("\n");
+        detalles.append("Total Pagado: $").append(String.format("%.2f", getTotalPagado())).append("\n");
+        detalles.append("Deuda Restante: $").append(String.format("%.2f", calcularDeudaRestante())).append("\n");
+        return detalles.toString();
+    }
+
 }
