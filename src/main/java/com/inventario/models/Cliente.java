@@ -12,7 +12,7 @@ public class Cliente {
     private String tipoCuota; // Ej: "mensual", "quincenal"
     private String producto; // Nuevo campo para el nombre del producto
     private double totalProducto;
-    private List<Cuota> cuotas;
+    private List<Cuota> cuotas = new ArrayList<>(); // Inicialización directa para evitar NullPointerException
     private double adelantoAcumulado;
 
     // Constructor para un nuevo cliente
@@ -24,7 +24,7 @@ public class Cliente {
         this.tipoCuota = tipoCuota;
         this.producto = producto; // Asignar el producto
         this.totalProducto = totalProducto;
-        this.cuotas = new ArrayList<>();
+        this.cuotas = new ArrayList<>(); // Se mantiene para crear una nueva lista en cada nuevo cliente
         this.adelantoAcumulado = 0.0;
         for (int i = 1; i <= totalCuotas; i++) {
             LocalDate fechaVencimiento;
@@ -50,9 +50,6 @@ public class Cliente {
         this.totalProducto = totalProducto;
         this.cuotas = cuotas != null ? cuotas : new ArrayList<>(); // Asegura que cuotas nunca sea null
         this.adelantoAcumulado = adelantoAcumulado; // Cargar adelanto acumulado
-    }
-
-    public Cliente(String nombre, String apellido, String dni, String tipoCuota, double totalProducto, List<Cuota> cuotas) {
     }
 
     public double getTotalPagado() {
