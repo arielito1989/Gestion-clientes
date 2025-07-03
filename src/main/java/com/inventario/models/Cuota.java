@@ -1,22 +1,30 @@
 package com.inventario.models;
 
-// Clase para representar una cuota individual de un cliente.
+import java.time.LocalDate;
+
 public class Cuota {
-    private int numeroCuota; // Número de la cuota (ej. 1, 2, 3...)
-    private double montoOriginal; // Monto total que debe tener esta cuota
-    private double montoPagado; // Cuánto se ha pagado de esta cuota
-    private boolean isFaltante; // Nuevo: true si esta cuota es un "faltante" de una cuota anterior
+    private int numeroCuota;
+    private double montoOriginal;
+    private double montoPagado;
+    private LocalDate fechaVencimiento;
+    private LocalDate fechaPago;
+    private boolean isFaltante;
 
     public Cuota(int numeroCuota, double montoOriginal) {
-        this(numeroCuota, montoOriginal, 0.0, false); // Llama al constructor completo
+        this(numeroCuota, montoOriginal, 0.0, null, null, false);
     }
 
-    // Constructor para deserialización desde JSON (usado por ExcelExporter) y para crear faltantes
-    public Cuota(int numeroCuota, double montoOriginal, double montoPagado, boolean isFaltante) {
+    public Cuota(int numeroCuota, double montoOriginal, double montoPagado, LocalDate fechaVencimiento, LocalDate fechaPago, boolean isFaltante) {
         this.numeroCuota = numeroCuota;
         this.montoOriginal = montoOriginal;
         this.montoPagado = montoPagado;
+        this.fechaVencimiento = fechaVencimiento;
+        this.fechaPago = fechaPago;
         this.isFaltante = isFaltante;
+    }
+
+    public Cuota(int numeroCuota, double montoOriginal, double montoPagado, boolean isFaltante) {
+        this(numeroCuota, montoOriginal, montoPagado, null, null, isFaltante);
     }
 
     public int getNumeroCuota() {
@@ -27,7 +35,6 @@ public class Cuota {
         return montoOriginal;
     }
 
-    // Nuevo setter para ajustar el monto original (usado en la lógica de refinanciación)
     public void setMontoOriginal(double montoOriginal) {
         this.montoOriginal = montoOriginal;
     }
@@ -40,14 +47,26 @@ public class Cuota {
         this.montoPagado = montoPagado;
     }
 
+    public LocalDate getFechaVencimiento() {
+        return fechaVencimiento;
+    }
+
+    public void setFechaVencimiento(LocalDate fechaVencimiento) {
+        this.fechaVencimiento = fechaVencimiento;
+    }
+
+    public LocalDate getFechaPago() {
+        return fechaPago;
+    }
+
+    public void setFechaPago(LocalDate fechaPago) {
+        this.fechaPago = fechaPago;
+    }
+
     public boolean isFaltante() {
         return isFaltante;
     }
 
-    /**
-     * Calcula el monto restante por pagar de esta cuota.
-     * @return El monto restante.
-     */
     public double getMontoRestante() {
         return montoOriginal - montoPagado;
     }
@@ -60,12 +79,12 @@ public class Cuota {
     public double aplicarPago(double pago) {
         double restante = getMontoRestante();
         if (pago >= restante) {
-            // El pago cubre o excede el monto restante de esta cuota
-            montoPagado += restante; // Paga el total restante de esta cuota
+            montoPagado += restante;
+            this.setFechaPago(LocalDate.now());
             return pago - restante; // Devuelve el excedente
         } else {
-            // El pago es menor que el monto restante
-            montoPagado += pago; // Paga una parte de la cuota
+            montoPagado += pago;
+            this.setFechaPago(null); // Si el pago es parcial, la fecha de pago se anula
             return 0.0; // No hay excedente
         }
     }
@@ -76,15 +95,14 @@ public class Cuota {
      * @return El monto que "sobró" al deshacer (ej. si se deshizo un pago que dejó la cuota en negativo).
      */
     public double deshacerPago(double monto) {
-        double montoParaDeshacer = Math.min(monto, montoPagado); // No deshacer más de lo pagado
+        double montoParaDeshacer = Math.min(monto, montoPagado);
         montoPagado -= montoParaDeshacer;
-        return monto - montoParaDeshacer; // Devuelve lo que no se pudo deshacer de esta cuota
+        if (montoPagado < montoOriginal) {
+            this.setFechaPago(null);
+        }
+        return monto - montoParaDeshacer;
     }
 
-    /**
-     * Verifica si la cuota ha sido pagada en su totalidad.
-     * @return true si el monto pagado es igual o mayor al monto original.
-     */
     public boolean estaPagada() {
         return montoPagado >= montoOriginal;
     }
@@ -92,7 +110,11 @@ public class Cuota {
     @Override
     public String toString() {
         String tipo = isFaltante ? "FALTANTE" : "ORIGINAL";
-        return String.format("Cuota %d (%s): Original $%.2f, Pagado $%.2f, Restante $%.2f (%s)",
-                numeroCuota, tipo, montoOriginal, montoPagado, getMontoRestante(), estaPagada() ? "Pagada" : "Pendiente");
+        String estado = estaPagada() ? "Pagada" : "Pendiente";
+        String fechaVenc = (fechaVencimiento != null) ? fechaVencimiento.toString() : "N/A";
+        String fechaPag = (fechaPago != null) ? fechaPago.toString() : "N/A";
+
+        return String.format("Cuota %d (%s): Original $%.2f, Pagado $%.2f, Restante $%.2f | Venc: %s | Pago: %s | Estado: %s",
+                numeroCuota, tipo, montoOriginal, montoPagado, getMontoRestante(), fechaVenc, fechaPag, estado);
     }
 }

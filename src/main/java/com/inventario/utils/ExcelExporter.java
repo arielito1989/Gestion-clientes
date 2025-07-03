@@ -5,261 +5,171 @@ import com.inventario.models.Cuota;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-import java.io.File;
+import javax.swing.*;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors; // Para usar Collectors.toMap
 
 public class ExcelExporter {
 
-    private static final String DEFAULT_FILE_PATH = "clientes.xlsx";
-    private static final String CLIENTES_SHEET_NAME = "Clientes";
-    private static final String CUOTAS_SHEET_NAME = "DetalleCuotas";
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd"); // Formato para guardar/leer fechas
 
-    /**
-     * Exporta la lista de clientes a un archivo Excel con dos hojas:
-     * "Clientes" para el resumen y "DetalleCuotas" para el detalle de cada cuota.
-     * @param clientes La lista de objetos Cliente a exportar.
-     * @param rutaArchivo La ruta completa del archivo Excel de salida.
-     */
-    public static void exportarClientes(List<Cliente> clientes, String rutaArchivo) {
-        Workbook workbook = new XSSFWorkbook();
+    // --- Método para EXPORTAR clientes (asegúrate de que guarde el apellido y tipoCuota) ---
+    public static void exportarClientes(List<Cliente> clientes, String filePath) {
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Clientes");
 
-        // --- Hoja de Clientes (Resumen) ---
-        Sheet clientesSheet = workbook.createSheet(CLIENTES_SHEET_NAME);
-
-        Font headerFont = workbook.createFont();
-        headerFont.setBold(true);
-        headerFont.setColor(IndexedColors.WHITE.getIndex());
-        // CORRECCIÓN AQUÍ: Eliminar el argumento 'workbook' de createCellStyle()
-        CellStyle headerCellStyle = workbook.createCellStyle();
-        headerCellStyle.setFont(headerFont);
-        headerCellStyle.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
-        headerCellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-        headerCellStyle.setAlignment(HorizontalAlignment.CENTER);
-
-        // Cabecera para la hoja de Clientes
-        Row clientesHeader = clientesSheet.createRow(0);
-        String[] clientesHeaders = {
-                "Nombre", "DNI", "Tipo de Cuota", "Total Producto",
-                "Total Cuotas", "Cuotas Pagadas", "Cuotas Pendientes", "Valor Cuota Promedio",
-                "Monto Pagado Total", "Deuda Restante Total"
-        };
-        for (int i = 0; i < clientesHeaders.length; i++) {
-            Cell cell = clientesHeader.createCell(i);
-            cell.setCellValue(clientesHeaders[i]);
-            cell.setCellStyle(headerCellStyle);
-        }
-
-        // Cuerpo para la hoja de Clientes
-        int clienteRowNum = 1;
-        for (Cliente c : clientes) {
-            Row fila = clientesSheet.createRow(clienteRowNum++);
-            fila.createCell(0).setCellValue(c.getNombre());
-            fila.createCell(1).setCellValue(c.getDni());
-            fila.createCell(2).setCellValue(c.getTipoCuota());
-            fila.createCell(3).setCellValue(c.getTotalProducto());
-            fila.createCell(4).setCellValue(c.getTotalCuotas());
-            fila.createCell(5).setCellValue(c.getCuotasPagadasCount());
-            fila.createCell(6).setCellValue(c.getCuotasRestantes());
-            fila.createCell(7).setCellValue(c.getValorCuota());
-            fila.createCell(8).setCellValue(c.getTotalPagado());
-            fila.createCell(9).setCellValue(c.calcularDeudaRestante());
-        }
-
-        // Ajustar ancho de columnas para la hoja de Clientes
-        for (int i = 0; i < clientesHeaders.length; i++) {
-            clientesSheet.autoSizeColumn(i);
-        }
-
-        // --- Hoja de Detalle de Cuotas ---
-        Sheet cuotasSheet = workbook.createSheet(CUOTAS_SHEET_NAME);
-
-        // Cabecera para la hoja de Detalle de Cuotas
-        Row cuotasHeader = cuotasSheet.createRow(0);
-        String[] cuotasHeaders = {
-                "DNI_Cliente", "Numero_Cuota", "Monto_Original", "Monto_Pagado", "Monto_Restante", "Es_Faltante"
-        };
-        for (int i = 0; i < cuotasHeaders.length; i++) {
-            Cell cell = cuotasHeader.createCell(i);
-            cell.setCellValue(cuotasHeaders[i]);
-            cell.setCellStyle(headerCellStyle); // Reutiliza el mismo estilo de cabecera
-        }
-
-        // Cuerpo para la hoja de Detalle de Cuotas
-        int cuotaRowNum = 1;
-        for (Cliente c : clientes) {
-            for (Cuota cuota : c.getCuotas()) {
-                Row fila = cuotasSheet.createRow(cuotaRowNum++);
-                fila.createCell(0).setCellValue(c.getDni()); // DNI para vincular
-                fila.createCell(1).setCellValue(cuota.getNumeroCuota());
-                fila.createCell(2).setCellValue(cuota.getMontoOriginal());
-                fila.createCell(3).setCellValue(cuota.getMontoPagado());
-                fila.createCell(4).setCellValue(cuota.getMontoRestante());
-                fila.createCell(5).setCellValue(cuota.isFaltante());
+            // Crear cabecera
+            Row headerRow = sheet.createRow(0);
+            String[] headers = {"Nombre", "Apellido", "DNI", "Tipo Cuota", "Total Producto", "Cuotas (JSON)"}; // Añadir Apellido y Tipo Cuota
+            for (int i = 0; i < headers.length; i++) {
+                headerRow.createCell(i).setCellValue(headers[i]);
             }
-        }
 
-        // Ajustar ancho de columnas para la hoja de Detalle de Cuotas
-        for (int i = 0; i < cuotasHeaders.length; i++) {
-            cuotasSheet.autoSizeColumn(i);
-        }
+            // Llenar datos
+            int rowNum = 1;
+            for (Cliente cliente : clientes) {
+                Row row = sheet.createRow(rowNum++);
+                row.createCell(0).setCellValue(cliente.getNombre());
+                row.createCell(1).setCellValue(cliente.getApellido()); // Guardar apellido
+                row.createCell(2).setCellValue(cliente.getDni());
+                row.createCell(3).setCellValue(cliente.getTipoCuota()); // Guardar tipoCuota
+                row.createCell(4).setCellValue(cliente.getTotalProducto());
 
-        // Guardar archivo
-        try (FileOutputStream out = new FileOutputStream(rutaArchivo)) {
-            workbook.write(out);
-            workbook.close();
-            System.out.println("📁 Archivo exportado: " + rutaArchivo);
+                // Serializar la lista de cuotas a JSON para guardarla en una celda
+                // Esto es una simplificación, necesitarías una librería JSON como Gson o Jackson
+                // Para simplificar el ejemplo, asumiré un formato simple o que ya tienes tu propia lógica de serialización.
+                StringBuilder cuotasJson = new StringBuilder("[");
+                for (Cuota cuota : cliente.getCuotas()) {
+                    cuotasJson.append("{");
+                    cuotasJson.append("\"numeroCuota\":").append(cuota.getNumeroCuota()).append(",");
+                    cuotasJson.append("\"montoOriginal\":").append(cuota.getMontoOriginal()).append(",");
+                    cuotasJson.append("\"montoPagado\":").append(cuota.getMontoPagado()).append(",");
+                    cuotasJson.append("\"fechaVencimiento\":\"").append(cuota.getFechaVencimiento() != null ? cuota.getFechaVencimiento().format(DATE_FORMATTER) : "").append("\",");
+                    cuotasJson.append("\"fechaPago\":\"").append(cuota.getFechaPago() != null ? cuota.getFechaPago().format(DATE_FORMATTER) : "").append("\",");
+                    cuotasJson.append("\"isFaltante\":").append(cuota.isFaltante());
+                    cuotasJson.append("},");
+                }
+                if (cliente.getCuotas().size() > 0) {
+                    cuotasJson.deleteCharAt(cuotasJson.length() - 1); // Eliminar la última coma
+                }
+                cuotasJson.append("]");
+                row.createCell(5).setCellValue(cuotasJson.toString()); // Guardar cuotas como JSON
+
+            }
+
+            try (FileOutputStream outputStream = new FileOutputStream(filePath)) {
+                workbook.write(outputStream);
+            }
+
         } catch (IOException e) {
-            System.err.println("❌ Error al exportar: " + e.getMessage());
-            // Podrías lanzar una excepción o mostrar un JOptionPane aquí si quisieras notificar al usuario
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(null, "Error al exportar clientes a Excel: " + e.getMessage(), "Error de Exportación", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    /**
-     * Importa la lista de clientes desde un archivo Excel con dos hojas.
-     * @param rutaArchivo La ruta completa del archivo Excel de entrada.
-     * @return Una lista de objetos Cliente leídos del Excel.
-     */
-    public static List<Cliente> importarClientes(String rutaArchivo) {
+
+    // --- Método para IMPORTAR clientes (AQUÍ ES DONDE NECESITAS EL CAMBIO) ---
+    public static List<Cliente> importarClientes(String filePath) {
         List<Cliente> clientes = new ArrayList<>();
-        File excelFile = new File(rutaArchivo);
-
-        if (!excelFile.exists()) {
-            System.out.println("ℹ️ El archivo Excel no existe. Se iniciará con una lista de clientes vacía.");
-            return clientes;
-        }
-
-        try (FileInputStream fis = new FileInputStream(excelFile);
+        try (FileInputStream fis = new FileInputStream(filePath);
              Workbook workbook = new XSSFWorkbook(fis)) {
 
-            // --- Importar Clientes desde la Hoja "Clientes" ---
-            Sheet clientesSheet = workbook.getSheet(CLIENTES_SHEET_NAME);
-            if (clientesSheet == null) {
-                System.err.println("❌ Hoja '" + CLIENTES_SHEET_NAME + "' no encontrada en el archivo Excel. Se iniciará con lista vacía.");
-                return new ArrayList<>();
-            }
+            Sheet sheet = workbook.getSheetAt(0);
+            DataFormatter formatter = new DataFormatter(); // Para leer celdas como String
 
-            for (int rowNum = 1; rowNum <= clientesSheet.getLastRowNum(); rowNum++) {
-                Row fila = clientesSheet.getRow(rowNum);
-                if (fila == null) {
+            for (Row row : sheet) {
+                if (row.getRowNum() == 0) continue; // Saltar la fila de cabecera
+
+                // Asegúrate de que las celdas no sean nulas antes de intentar leerlas
+                Cell nombreCell = row.getCell(0);
+                Cell apellidoCell = row.getCell(1); // Celda para apellido
+                Cell dniCell = row.getCell(2);
+                Cell tipoCuotaCell = row.getCell(3); // Celda para tipoCuota
+                Cell totalProductoCell = row.getCell(4);
+                Cell cuotasJsonCell = row.getCell(5); // Celda para cuotas JSON
+
+                // Validar que las celdas principales no sean nulas
+                if (nombreCell == null || apellidoCell == null || dniCell == null || tipoCuotaCell == null || totalProductoCell == null || cuotasJsonCell == null) {
+                    System.err.println("Advertencia: Fila incompleta detectada en Excel, saltando fila " + row.getRowNum());
                     continue;
                 }
 
-                String nombre = getCellValue(fila.getCell(0));
-                String dni = getCellValue(fila.getCell(1));
-                String tipoCuota = getCellValue(fila.getCell(2));
-                double totalProducto = getNumericCellValue(fila.getCell(3));
+                String nombre = formatter.formatCellValue(nombreCell);
+                String apellido = formatter.formatCellValue(apellidoCell); // Leer apellido
+                String dni = formatter.formatCellValue(dniCell);
+                String tipoCuota = formatter.formatCellValue(tipoCuotaCell); // LEER TIPO_CUOTA AQUÍ
+                double totalProducto = totalProductoCell.getNumericCellValue();
 
-                // Creamos el cliente con una lista de cuotas vacía por ahora
-                clientes.add(new Cliente(nombre, dni, tipoCuota, totalProducto, new ArrayList<>()));
-            }
+                // Deserializar la lista de cuotas desde JSON
+                // Esto es una simplificación, necesitarías una librería JSON como Gson o Jackson
+                // O tu propia lógica de parsing si no usas librerías externas.
+                List<Cuota> cuotas = new ArrayList<>();
+                try {
+                    String cuotasJson = formatter.formatCellValue(cuotasJsonCell);
+                    // Lógica de parsing de JSON aquí.
+                    // Por ejemplo, si el JSON es simple como el que exportamos:
+                    // Esto es un PARSER MUY BÁSICO y frágil, solo para ilustrar.
+                    // ¡Es altamente recomendable usar una librería JSON real!
+                    if (cuotasJson.startsWith("[") && cuotasJson.endsWith("]")) {
+                        String content = cuotasJson.substring(1, cuotasJson.length() - 1);
+                        String[] cuotaStrings = content.split("\\},\\{"); // Divide por }, {
+                        for (String cs : cuotaStrings) {
+                            if (cs.isEmpty()) continue;
+                            if (!cs.startsWith("{")) cs = "{" + cs;
+                            if (!cs.endsWith("}")) cs = cs + "}";
 
-            // --- Importar Detalle de Cuotas desde la Hoja "DetalleCuotas" ---
-            Sheet cuotasSheet = workbook.getSheet(CUOTAS_SHEET_NAME);
-            if (cuotasSheet == null) {
-                System.err.println("❌ Hoja '" + CUOTAS_SHEET_NAME + "' no encontrada en el archivo Excel. Los clientes no tendrán detalle de cuotas.");
-                return clientes; // Devolver clientes sin detalle de cuotas si la hoja no existe
-            }
+                            // Parsing rudimentario de cada cuota
+                            int numeroCuota = Integer.parseInt(extractValue(cs, "numeroCuota"));
+                            double montoOriginal = Double.parseDouble(extractValue(cs, "montoOriginal"));
+                            double montoPagado = Double.parseDouble(extractValue(cs, "montoPagado"));
+                            String fechaVencStr = extractValue(cs, "fechaVencimiento");
+                            String fechaPagoStr = extractValue(cs, "fechaPago");
+                            boolean isFaltante = Boolean.parseBoolean(extractValue(cs, "isFaltante"));
 
-            // Mapear clientes por DNI para asignar cuotas fácilmente
-            java.util.Map<String, Cliente> clientesMap = clientes.stream()
-                    .collect(Collectors.toMap(Cliente::getDni, cliente -> cliente));
+                            LocalDate fechaVencimiento = fechaVencStr.isEmpty() ? null : LocalDate.parse(fechaVencStr, DATE_FORMATTER);
+                            LocalDate fechaPago = fechaPagoStr.isEmpty() ? null : LocalDate.parse(fechaPagoStr, DATE_FORMATTER);
 
-
-            for (int rowNum = 1; rowNum <= cuotasSheet.getLastRowNum(); rowNum++) {
-                Row fila = cuotasSheet.getRow(rowNum);
-                if (fila == null) {
-                    continue;
+                            cuotas.add(new Cuota(numeroCuota, montoOriginal, montoPagado, fechaVencimiento, fechaPago, isFaltante));
+                        }
+                    }
+                } catch (Exception jsonE) {
+                    System.err.println("Error al deserializar cuotas para cliente " + nombre + ": " + jsonE.getMessage());
+                    // Puedes optar por saltar este cliente o inicializar cuotas vacías
+                    cuotas = new ArrayList<>();
                 }
 
-                String dniCliente = getCellValue(fila.getCell(0));
-                Cliente cliente = clientesMap.get(dniCliente);
-
-                if (cliente != null) {
-                    int numeroCuota = (int) getNumericCellValue(fila.getCell(1));
-                    double montoOriginal = getNumericCellValue(fila.getCell(2));
-                    double montoPagado = getNumericCellValue(fila.getCell(3));
-                    boolean isFaltante = getBooleanCellValue(fila.getCell(5));
-
-                    cliente.getCuotas().add(new Cuota(numeroCuota, montoOriginal, montoPagado, isFaltante));
-                } else {
-                    System.err.println("Advertencia: Cuota encontrada para DNI " + dniCliente + " pero el cliente no existe en la hoja principal.");
-                }
+                // LLAMAR AL CONSTRUCTOR CORRECTO AHORA
+                clientes.add(new Cliente(nombre, apellido, dni, tipoCuota, totalProducto, cuotas)); // ¡Ahora con tipoCuota!
             }
-            System.out.println("✅ Clientes y detalles de cuotas importados desde: " + rutaArchivo);
 
         } catch (IOException e) {
-            System.err.println("❌ Error al importar clientes desde Excel: " + e.getMessage());
-        } catch (Exception e) {
-            System.err.println("❌ Error inesperado al leer el archivo Excel: " + e.getMessage());
             e.printStackTrace();
+            JOptionPane.showMessageDialog(null, "Error al importar clientes desde Excel: " + e.getMessage(), "Error de Importación", JOptionPane.ERROR_MESSAGE);
+            return null;
         }
         return clientes;
     }
 
-    // Métodos auxiliares para obtener valores de celdas de forma segura
-    private static String getCellValue(Cell cell) {
-        if (cell == null) {
-            return "";
+    // Método auxiliar para el parsing rudimentario de JSON
+    private static String extractValue(String json, String key) {
+        String search = "\"" + key + "\":";
+        int startIndex = json.indexOf(search);
+        if (startIndex == -1) return "";
+        startIndex += search.length();
+        char firstChar = json.charAt(startIndex);
+        if (firstChar == '"') { // Es un String
+            startIndex++;
+            int endIndex = json.indexOf("\"", startIndex);
+            return json.substring(startIndex, endIndex);
+        } else { // Es un número o booleano
+            int endIndex = json.indexOf(",", startIndex);
+            if (endIndex == -1) endIndex = json.indexOf("}", startIndex);
+            return json.substring(startIndex, endIndex).trim();
         }
-        switch (cell.getCellType()) {
-            case STRING:
-                return cell.getStringCellValue();
-            case NUMERIC:
-                if (DateUtil.isCellDateFormatted(cell)) {
-                    return cell.getDateCellValue().toString();
-                } else {
-                    return String.valueOf(cell.getNumericCellValue()).replaceAll("\\.0$", "");
-                }
-            case BOOLEAN:
-                return String.valueOf(cell.getBooleanCellValue());
-            case FORMULA:
-                try {
-                    if (cell.getCachedFormulaResultType() == CellType.NUMERIC) {
-                        return String.valueOf(cell.getNumericCellValue());
-                    } else {
-                        return cell.getStringCellValue();
-                    }
-                } catch (IllegalStateException e) {
-                    return cell.getStringCellValue();
-                }
-            case BLANK:
-                return "";
-            default:
-                return "";
-        }
-    }
-
-    private static double getNumericCellValue(Cell cell) {
-        if (cell == null || cell.getCellType() == CellType.BLANK) {
-            return 0.0;
-        }
-        if (cell.getCellType() == CellType.NUMERIC) {
-            return cell.getNumericCellValue();
-        } else if (cell.getCellType() == CellType.STRING) {
-            try {
-                return Double.parseDouble(cell.getStringCellValue());
-            } catch (NumberFormatException e) {
-                System.err.println("Advertencia: No se pudo parsear el valor numérico de la celda: '" + cell.getStringCellValue() + "'");
-                return 0.0;
-            }
-        }
-        return 0.0;
-    }
-
-    private static boolean getBooleanCellValue(Cell cell) {
-        if (cell == null || cell.getCellType() == CellType.BLANK) {
-            return false;
-        }
-        if (cell.getCellType() == CellType.BOOLEAN) {
-            return cell.getBooleanCellValue();
-        } else if (cell.getCellType() == CellType.STRING) {
-            return Boolean.parseBoolean(cell.getStringCellValue());
-        }
-        return false;
     }
 }
