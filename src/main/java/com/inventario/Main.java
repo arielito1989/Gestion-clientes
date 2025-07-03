@@ -1,29 +1,34 @@
-package com.inventario; // Este es el paquete correcto para este Main.java
+package com.inventario;
 
 import com.inventario.ui.MainWindow;
-import javax.swing.SwingUtilities;
-import javax.swing.UIManager; // ¡Importante: Necesitas importar UIManager!
+
+import javax.swing.*;
 
 public class Main {
     public static void main(String[] args) {
+        // Asegurarse de que la interfaz de usuario se ejecute en el Event Dispatch Thread (EDT)
         SwingUtilities.invokeLater(() -> {
-            // --- INICIO: Código para establecer el Look and Feel de Nimbus ---
             try {
+                // Configurar el Look and Feel de Nimbus para una apariencia moderna
                 for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
                     if ("Nimbus".equals(info.getName())) {
                         UIManager.setLookAndFeel(info.getClassName());
-                        break; // Salir del bucle una vez que Nimbus ha sido encontrado y establecido
+                        break;
                     }
                 }
             } catch (Exception e) {
-                // Si ocurre un error al establecer Nimbus (ej. no está disponible),
-                // la aplicación continuará con el Look and Feel predeterminado del sistema.
-                System.err.println("No se pudo establecer el Look and Feel de Nimbus. Usando el predeterminado. " + e.getMessage());
+                // Si Nimbus no está disponible o falla, usar el Look and Feel por defecto del sistema
+                System.err.println("No se pudo establecer el Look and Feel de Nimbus. Usando el predeterminado.");
+                try {
+                    UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+                } catch (Exception ex) {
+                    System.err.println("Error al establecer el Look and Feel del sistema: " + ex.getMessage());
+                }
             }
-            // --- FIN: Código para establecer el Look and Feel de Nimbus ---
 
-            MainWindow app = new MainWindow();
-            app.setVisible(true);
+            // Crear y mostrar la ventana principal de la aplicación
+            MainWindow mainWindow = new MainWindow();
+            mainWindow.setVisible(true);
         });
     }
 }
