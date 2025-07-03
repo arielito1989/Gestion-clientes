@@ -62,3 +62,6 @@ Automatizar tests unitarios y de integración para mejorar la calidad del códig
 Contribuciones
 -
 ¡Las contribuciones son bienvenidas! Si querés ayudar con nuevas funcionalidades, mejoras o corrección de errores, por favor hacé un fork del repositorio y abrí un pull request.
+
+## Nota
+Este código está siendo modificado con la ayuda de Gemini, una IA de Google.
